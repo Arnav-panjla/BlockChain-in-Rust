@@ -1,39 +1,58 @@
 use::std::collections::BTreeMap;
+use std::ops::{AddAssign};
 
-pub struct Pallet {
-    block_number: u32,
-    nonce: BTreeMap<String, u32>,
+use num::{CheckedAdd, CheckedSub};
+use num::traits::{Zero, One};
 
+
+
+pub trait Config {
+    type AccountID: Ord + Clone;
+    type BlockNumber: Default + CheckedAdd + CheckedSub + Copy + AddAssign + Zero + One;
+    type Nonce: Default + Clone + Copy + Zero + One + AddAssign;
+    
+}
+#[derive(Debug)]
+pub struct Pallet<T: Config> {
+    block_number: T::BlockNumber,
+    nonce: BTreeMap<T::AccountID, T::Nonce>,
 }
 
-impl Pallet {
+impl<T:Config> Pallet<T> {
     pub fn new() -> Self {
         Pallet {
-            block_number: 0,
+            block_number: T::BlockNumber::zero(),
             nonce: BTreeMap::new(),
         }
     }
-    pub fn block_number(&self) -> u32 {
+    pub fn block_number(&self) -> T::BlockNumber {
         self.block_number
     }
     pub fn inc_block_number(&mut self) {
-        self.block_number += 1;
+        self.block_number += T::BlockNumber::one();
     }
-    pub fn inc_nonce(&mut self , who: &String) {
-        let nonce = self.nonce.get(who).unwrap_or(&0);
-        self.nonce.insert(who.clone(),nonce+1);
+    pub fn inc_nonce(&mut self , who: &T::AccountID) {
+        let nonce = *self.nonce.get(who).unwrap_or(&T::Nonce::zero());
+        self.nonce.insert(who.clone(),nonce + T::Nonce::one());
     }
-    pub fn get_nonce(&self, who:&String) -> u32 {
-        *self.nonce.get(who).unwrap_or(&0)
+    pub fn get_nonce(&self, who:&T::AccountID) -> T::Nonce {
+        *self.nonce.get(who).unwrap_or(&T::Nonce::zero())
     }
 }
 
 
 #[cfg(test)]
 mod test {
+    struct TestConfig;
+    impl super::Config for TestConfig {
+        type AccountID = String;
+        type BlockNumber = u32;
+        type Nonce = u32;
+    }
+
     #[test]
     fn init_system() {
-        let mut system = super::Pallet::new();
+        let mut system: super::Pallet<TestConfig> = super::Pallet::new();
         system.inc_block_number();
         assert_eq!(system.block_number(),1);
 
